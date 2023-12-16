@@ -114,7 +114,7 @@ class BaseSocketClient {
 
     this.useHeartbeat && this.checkHeartbeat();
 
-    return connected;
+    return connected ? this.host : connected; // 成功则返回host
   }
 
   async ping(host, port) {
