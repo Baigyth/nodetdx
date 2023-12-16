@@ -263,6 +263,7 @@ const INDEX_MARKETCODE_MAP = {
  * marketCode 可选值:
  * SH: 上证
  * SZ: 深证
+ * BJ: 北交所 todo 自定义
  *
  * subType 可选值: (空值表示非指数)
  * 暂无
@@ -279,7 +280,7 @@ function parseSymbol(symbol) {
       data.subType = arr[3];
     }
 
-    if (INDEX_MARKETCODE_MAP[data.code] === data.marketCode || /^880\d{3}$/.test(data.code)) { // 板块指数以880开头
+    if (INDEX_MARKETCODE_MAP[data.code] === data.marketCode || /^88[01]\d{3}$/.test(data.code)) { // 板块指数以880或881开头
       data.isIndex = true;
     }
     
@@ -292,6 +293,7 @@ function parseSymbol(symbol) {
 const MARKETID_MAP = {
   SH: 1,
   SZ: 0,
+  BJ: 2, // 北交所
   DCE: 29,
   CZCE: 28,
   SHFE: 30,

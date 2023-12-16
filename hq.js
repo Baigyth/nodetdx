@@ -30,7 +30,7 @@ try {
 }
 catch (e) {}
 
-const marketIds = ['SH', 'SZ'];
+const marketIds = ['SH', 'SZ', 'BJ'];
 class TdxMarketApi extends BaseSocketClient {
 
   doPing() {
@@ -424,7 +424,8 @@ class TdxMarketApi extends BaseSocketClient {
       const list = [], step = 1000;
       const regMap = {
         SH: /^6[08]\d{4}$/,
-        SZ: /^00\d{4}|30\d{4}$/
+        SZ: /^00\d{4}|30\d{4}$/,
+        BJ: /^(8[37]|43)\d{4}$/
       };
       const reg = regMap[marketId];
 
@@ -444,7 +445,7 @@ class TdxMarketApi extends BaseSocketClient {
       return list;
     }
     else {
-      return [ ...await this.findStockList('SH'), ...await this.findStockList('SZ') ];
+      return [ ...await this.findStockList('SH'), ...await this.findStockList('SZ'), ...await this.findStockList('BJ') ]; // todo 自定义
     }
   }
 
