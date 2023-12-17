@@ -25,14 +25,14 @@ class TdxDailyBarReader extends TdxMinuteBarReader {
     'BJ_A_STOCK': [0.01, 0.01]
   };
 
-  // 读取通达信分钟数据
+  // 读取通达信日线数据
   parseDataFromFile(filename) {
     if (!fs.existsSync(filename)) {
       throw new TdxFileNotFoundException(`no tdx kline data, please check path ${filename}`);
     }
     const securityType = this.getSecurityType(filename);
 
-    if (!securityType || !TdxDailyBarReader.SECURITY_TYPE.some(s => s === securityType)) {
+    if (!securityType || !TdxDailyBarReader.SECURITY_TYPE.includes(securityType)) {
       throw new TdxSecurityTypeNotFoundException('Unknown security type!');
     }
     const coefficient = TdxDailyBarReader.SECURITY_COEFFICIENT[securityType];
