@@ -91,7 +91,7 @@ class TdxDailyBarReader extends TdxMinuteBarReader {
         return 'SZ_BOND';
       }
     } else if (exchange === TdxDailyBarReader.SECURITY_EXCHANGE[1]) {
-      if (codeHead === '60') {
+      if (codeHead === '60' || codeHead === '68') {
         return 'SH_A_STOCK';
       }
       if (codeHead === '90') {
