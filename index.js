@@ -18,12 +18,14 @@ const TdxMarketApi = require('./hq');
 const TdxExMarketApi = require('./exhq');
 const logger = require('./log');
 const TdxMinuteBarReader = require('./reader/minuteBarReader');
+const TdxDailyBarReader = require('./reader/dailyBarReader');
 const { marketHosts, exMarketHosts } = require('./config/hosts');
 
 module.exports = {
   TdxMarketApi,
   TdxExMarketApi,
   TdxMinuteBarReader,
+  TdxDailyBarReader,
   parseSymbol,
   getMarketId,
   getPeriodValue,
