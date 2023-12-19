@@ -62,7 +62,7 @@ class TdxMarketApi extends BaseSocketClient {
 
   /**
    * symbols的长度最大为80, 若超过80只股票则只查询前80只股票的quote
-   * @param  {...any} symbols 
+   * @param  {...any} symbols
    * ...symbols: 三种形式
    * '000001.SZ'
    * ['000001.SZ', '600519.SZ']
@@ -370,7 +370,7 @@ class TdxMarketApi extends BaseSocketClient {
     if (typeof callback !== 'function') {
       throw new Error('last argument of subscribe must be a function.');
     }
-    
+
     let child;
     // 支持线程则使用线程
     if (Worker) {
@@ -381,11 +381,11 @@ class TdxMarketApi extends BaseSocketClient {
     else {
       child = childProcess.fork(path.join(__dirname, './hqChildProcess.js'), [ methodName, args, this.host, this.port ], { stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ] });
     }
-    
+
     child.on('message', data => {
       callback(data);
     });
-    
+
     return child;
   }
 
@@ -411,11 +411,11 @@ class TdxMarketApi extends BaseSocketClient {
     else {
       child = childProcess.fork(path.join(__dirname, './subscribeQuotesChildProcess.js'), [ args, this.host, this.port ], { stdio: [ 'pipe', 'pipe', 'pipe', 'ipc' ] });
     }
-    
+
     child.on('message', data => {
       callback(data);
     });
-    
+
     return child;
   }
 
@@ -424,13 +424,13 @@ class TdxMarketApi extends BaseSocketClient {
       const list = [], step = 1000;
       const regMap = {
         SH: /^6[08]\d{4}$/,
-        SZ: /^00\d{4}|30\d{4}$/,
+        SZ: /^(00|30)\d{4}$/,
         BJ: /^(8[37]|43)\d{4}$/
       };
       const reg = regMap[marketId];
 
       let i = 0, tmpList;
-      
+
       do {
         tmpList = await this.getSecurityList(marketId, i++ * step);
         tmpList.forEach(item => {
