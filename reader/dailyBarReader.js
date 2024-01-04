@@ -1,11 +1,11 @@
 const fs = require('fs');
-const {TdxFileNotFoundException} = require('./baseReader');
+const { TdxFileNotFoundException } = require('./baseReader');
 const TdxMinuteBarReader = require('./minuteBarReader');
-const {formatDatetime} = require('../helper');
+const { formatDatetime, calcEndTimestamp, calcStartTimestamp } = require('../helper');
 
-class TdxExchangeNotFoundException extends Error {}
+class TdxExchangeNotFoundException extends Error { }
 
-class TdxSecurityTypeNotFoundException extends Error {}
+class TdxSecurityTypeNotFoundException extends Error { }
 
 class TdxDailyBarReader extends TdxMinuteBarReader {
 
@@ -40,23 +40,116 @@ class TdxDailyBarReader extends TdxMinuteBarReader {
     const rawList = this.unpackRecords('<IIIIIfII', content);
     const result = [];
     for (const row of rawList) {
-      const [year, month, day] = this.parseDate(row[0]);
-
-      result.push({
-                    datetime: formatDatetime(year, month, day, 'yyyy-MM-dd'),
-                    year,
-                    month,
-                    day,
-                    open: Number((row[1] * coefficient[0]).toFixed(2)),
-                    high: Number((row[2] * coefficient[0]).toFixed(2)),
-                    low: Number((row[3] * coefficient[0]).toFixed(2)),
-                    close: Number((row[4] * coefficient[0]).toFixed(2)),
-                    amount: Number(row[5].toFixed(2)),
-                    volume: row[6] / 100 // 多少手
-                    // unknown: row[8]
-                  });
+      result.push(this.#parseDataFromRow(row, coefficient));
     }
     return result;
+  }
+
+  #parseDataFromRow(row, coefficient) {
+    const [year, month, day] = this.parseDate(row[0]);
+    return {
+      datetime: formatDatetime(year, month, day, 'yyyy-MM-dd'),
+      year,
+      month,
+      day,
+      open: Number((row[1] * coefficient[0]).toFixed(2)),
+      high: Number((row[2] * coefficient[0]).toFixed(2)),
+      low: Number((row[3] * coefficient[0]).toFixed(2)),
+      close: Number((row[4] * coefficient[0]).toFixed(2)),
+      amount: Number(row[5].toFixed(2)),
+      volume: row[6] / 100 // 多少手
+      // unknown: row[8]
+    };
+  }
+
+  /**
+   * 按日期查询count根证券K线
+   * 若有startDatetime、count 且无 endDatetime, 则返回startDatetime之后的count根K线
+   * 若有endDatetime、count 且无 startDatetime, 则返回endDatetime之前的count根K线
+   * 若有startDatetime、endDatetime 且无 count, 则返回startDatetime和endDatetime之间的K线
+   * 若有startDatetime 且无 endDatetime、count, 则返回startDatetime到当前时间之间的K线
+   * @param {String} filename
+   * @param {String} startDatetime
+   * @param {String} endDatetime
+   * @param {Number} count
+   */
+  findSecurityBars(filename, startDatetime, endDatetime, count) {
+
+    let startTimestamp, endTimestamp;
+
+    if (startDatetime) {
+      startTimestamp = calcStartTimestamp(startDatetime);
+    }
+
+    if (endDatetime) {
+      endTimestamp = calcEndTimestamp(endDatetime);
+    }
+    if (!fs.existsSync(filename)) {
+      throw new TdxFileNotFoundException(`no tdx kline data, please check path ${filename}`);
+    }
+    const securityType = this.getSecurityType(filename);
+
+    if (!securityType || !TdxDailyBarReader.SECURITY_TYPE.includes(securityType)) {
+      throw new TdxSecurityTypeNotFoundException('Unknown security type!');
+    }
+    const coefficient = TdxDailyBarReader.SECURITY_COEFFICIENT[securityType];
+    const content = fs.readFileSync(filename);
+
+    let bars = [];
+    let i = 0;
+    while (true) {
+      let list = this.unpackRecords('<IIIIIfII', content);
+
+      if (!list || !list.length) {
+        break;
+      }
+
+      if (list.length) {
+        list = list.map(k => this.#parseDataFromRow(k, coefficient))
+        const firstBar = list[0];
+        const lastBar = list[list.length - 1];
+        const firstTimestamp = new Date(firstBar.datetime).getTime();
+        const lastTimestamp = new Date(lastBar.datetime).getTime();
+        if (!startDatetime && !endDatetime && count > 0) {
+          startTimestamp = 0
+          endTimestamp = lastTimestamp
+        }
+        if (endTimestamp && firstTimestamp >= endTimestamp) {
+          continue;
+        }
+
+        if (startTimestamp && startTimestamp > lastTimestamp) {
+          break;
+        }
+
+        list = list.filter(bar => {
+          const timestamp = new Date(bar.datetime).getTime();
+          if (startTimestamp && endTimestamp) {
+            return timestamp >= startTimestamp && timestamp <= endTimestamp;
+          } else if (startTimestamp) {
+            return timestamp >= startTimestamp;
+          } else if (endTimestamp) {
+            return timestamp <= endTimestamp;
+          }
+        });
+        bars = list.concat(bars);
+
+        if (!startTimestamp && endTimestamp && count && count > 0 && bars.length >= count) {
+          break;
+        }
+      }
+      break;
+    }
+
+    if (startTimestamp && endTimestamp) {
+      return count && count > 0 ? bars.slice(0, count) : bars;
+    } else if (startTimestamp) {
+      return count && count > 0 ? bars.slice(0, count) : bars;
+    } else if (endTimestamp) {
+      return count && count > 0 ? bars.slice(-count) : bars;
+    }
+
+    return bars;
   }
 
   parseDate(num) {
