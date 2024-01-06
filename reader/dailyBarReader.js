@@ -1,11 +1,13 @@
 const fs = require('fs');
-const { TdxFileNotFoundException } = require('./baseReader');
+const util = require('util');
+const readFile = util.promisify(fs.readFile); // 比fs.promises快10%
+const {TdxFileNotFoundException} = require('./baseReader');
 const TdxMinuteBarReader = require('./minuteBarReader');
-const { formatDatetime, calcEndTimestamp, calcStartTimestamp } = require('../helper');
+const {formatDatetime, calcEndTimestamp, calcStartTimestamp} = require('../helper');
 
-class TdxExchangeNotFoundException extends Error { }
+class TdxExchangeNotFoundException extends Error {}
 
-class TdxSecurityTypeNotFoundException extends Error { }
+class TdxSecurityTypeNotFoundException extends Error {}
 
 class TdxDailyBarReader extends TdxMinuteBarReader {
 
@@ -73,7 +75,7 @@ class TdxDailyBarReader extends TdxMinuteBarReader {
    * @param {String} endDatetime
    * @param {Number} count
    */
-  findSecurityBars(filename, startDatetime, endDatetime, count) {
+  async findSecurityBars(filename, startDatetime, endDatetime, count) {
 
     let startTimestamp, endTimestamp;
 
@@ -93,73 +95,74 @@ class TdxDailyBarReader extends TdxMinuteBarReader {
       throw new TdxSecurityTypeNotFoundException('Unknown security type!');
     }
     const coefficient = TdxDailyBarReader.SECURITY_COEFFICIENT[securityType];
-    const content = fs.readFileSync(filename);
 
-    let bars = [];
-    let i = 0;
-    while (true) {
-      let list = this.unpackRecords('<IIIIIfII', content);
+    return readFile(filename, (err, data) => err ? [] : data).then(content => {
+      if (content.length === 0) return [];
 
-      if (!list || !list.length) {
-        break;
-      }
+      return new Promise(res => {
+        let bars = [];
+        while (true) {
+          let list = this.unpackRecords('<IIIIIfII', content);
 
-      if (list.length) {
-        list = list.map(k => this.#parseDataFromRow(k, coefficient))
-        const firstBar = list[0];
-        const lastBar = list[list.length - 1];
-        const firstTimestamp = new Date(firstBar.datetime).getTime();
-        const lastTimestamp = new Date(lastBar.datetime).getTime();
-        if (!startDatetime && !endDatetime && count > 0) {
-          startTimestamp = 0
-          endTimestamp = lastTimestamp
-        }
-        if (endTimestamp && firstTimestamp >= endTimestamp) {
-          continue;
-        }
-
-        if (startTimestamp && startTimestamp > lastTimestamp) {
-          break;
-        }
-
-        list = list.filter(bar => {
-          const timestamp = new Date(bar.datetime).getTime();
-          if (startTimestamp && endTimestamp) {
-            return timestamp >= startTimestamp && timestamp <= endTimestamp;
-          } else if (startTimestamp) {
-            return timestamp >= startTimestamp;
-          } else if (endTimestamp) {
-            return timestamp <= endTimestamp;
+          if (!list || !list.length) {
+            break;
           }
-        });
-        bars = list.concat(bars);
 
-        if (!startTimestamp && endTimestamp && count && count > 0 && bars.length >= count) {
+          if (list.length) {
+            list = list.map(k => this.#parseDataFromRow(k, coefficient));
+            const firstBar = list[0];
+            const lastBar = list[list.length - 1];
+            const firstTimestamp = new Date(firstBar.datetime).getTime();
+            const lastTimestamp = new Date(lastBar.datetime).getTime();
+            if (!startDatetime && !endDatetime && count > 0) {
+              startTimestamp = 0;
+              endTimestamp = lastTimestamp;
+            }
+            if (endTimestamp && firstTimestamp >= endTimestamp) {
+              continue;
+            }
+
+            if (startTimestamp && startTimestamp > lastTimestamp) {
+              break;
+            }
+
+            list = list.filter(bar => {
+              const timestamp = new Date(bar.datetime).getTime();
+              if (startTimestamp && endTimestamp) {
+                return timestamp >= startTimestamp && timestamp <= endTimestamp;
+              } else if (startTimestamp) {
+                return timestamp >= startTimestamp;
+              } else if (endTimestamp) {
+                return timestamp <= endTimestamp;
+              }
+            });
+            bars = list.concat(bars);
+
+            if (!startTimestamp && endTimestamp && count && count > 0 && bars.length >= count) {
+              break;
+            }
+          }
           break;
         }
-      }
-      break;
-    }
 
-    if (startTimestamp && endTimestamp) {
-      return count && count > 0 ? bars.slice(0, count) : bars;
-    } else if (startTimestamp) {
-      return count && count > 0 ? bars.slice(0, count) : bars;
-    } else if (endTimestamp) {
-      return count && count > 0 ? bars.slice(-count) : bars;
-    }
+        if (startTimestamp && endTimestamp) {
+          res(count && count > 0 ? bars.slice(0, count) : bars);
+        } else if (startTimestamp) {
+          res(count && count > 0 ? bars.slice(0, count) : bars);
+        } else if (endTimestamp) {
+          res(count && count > 0 ? bars.slice(-count) : bars);
+        }
 
-    return bars;
+        res(bars);
+      });
+    });
+
   }
 
   parseDate(num) {
-    // 源码风格
-    // const year = Math.floor(num / 10000);
-    // const month = Math.floor((num % 10000) / 100);
-    // const day = Math.floor((num % 10000) % 100);
-    const year = `${num}`.substring(0, 4) * 1;
-    const month = `${num}`.substring(4, 6) * 1;
-    const day = `${num}`.substring(6, 8) * 1;
+    const year = Math.floor(num / 10000);
+    const month = Math.floor((num % 10000) / 100);
+    const day = Math.floor((num % 10000) % 100);
 
     return [year, month, day];
   }
