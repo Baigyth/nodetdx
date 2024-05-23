@@ -425,7 +425,7 @@ class TdxMarketApi extends BaseSocketClient {
       const regMap = {
         SH: /^6[08]\d{4}$/,
         SZ: /^(00|30)\d{4}$/,
-        BJ: /^(8[37]|43)\d{4}$/
+        BJ: /^(8[37]|43|92)\d{4}$/
       };
       const reg = regMap[marketId];
 

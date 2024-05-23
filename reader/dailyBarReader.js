@@ -203,7 +203,7 @@ class TdxDailyBarReader extends TdxMinuteBarReader {
         return 'SH_BOND';
       }
     } else if (exchange === TdxDailyBarReader.SECURITY_EXCHANGE[2]) {
-      if (codeHead === '83' || codeHead === '87' || codeHead === '43') {
+      if (codeHead === '83' || codeHead === '87' || codeHead === '43' || codeHead === '92') {
         return 'BJ_A_STOCK';
       }
     } else {
